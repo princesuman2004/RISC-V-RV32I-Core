@@ -30,18 +30,30 @@
  
 `define storereg       5'b01101   //////store content of register in data memory
 `define storedin       5'b01110   ////// store content of din bus in data memory
-`define senddout       5'b01111   /////send data from DataMemory to dout bus
+`define senddout       5'b01111   /////send data from DM to dout bus
 `define sendreg        5'b10001   ////// send data from DM to register
+ 
+///////////////////////////// Jump and branch instructions
+`define jump           5'b10010  ////jump to address
+`define jcarry         5'b10011  ////jump if carry
+`define jnocarry       5'b10100
+`define jsign          5'b10101  ////jump if sign
+`define jnosign        5'b10110
+`define jzero          5'b10111  //// jump if zero
+`define jnozero        5'b11000
+`define joverflow      5'b11001 ////jump if overflow
+`define jnooverflow    5'b11010
+ 
+//////////////////////////halt 
+`define halt           5'b11011
  
  
  
 module top(
-input clk,
-input [31:0] din,
-//input [31:0] instructions,
+input clk,sys_rst,
+input [15:0] din,
 output reg [15:0] dout
 );
-integer i=0;
  
 ////////////////adding program and data memory
 reg [31:0] inst_mem [15:0]; ////program memory
@@ -51,9 +63,9 @@ reg [15:0] data_mem [15:0]; ////data memory
  
  
  
-reg [31:0]IR;            ////// instruction register  <--ir[31:27]--><--ir[26:22]--><--ir[21:17]--><--ir[16]--><--ir[15:11]--><--ir[10:0]-->
+reg [31:0] IR;            ////// instruction register  <--ir[31:27]--><--ir[26:22]--><--ir[21:17]--><--ir[16]--><--ir[15:11]--><--ir[10:0]-->
                           //////fields                 <---  oper  --><--   rdest --><--   rsrc1 --><--modesel--><--  rsrc2 --><--unused  -->             
-                          //////fields                 <---  oper  --><--   rdest --><--   rsrc1 --><--modesel--><--  immediate_date      -->   2^15   
+                          //////fields                 <---  oper  --><--   rdest --><--   rsrc1 --><--modesel--><--  immediate_date      -->      
  
 reg [15:0] GPR [31:0] ;   ///////general purpose register gpr[0] ....... gpr[31]
  
@@ -64,15 +76,18 @@ reg [15:0] SGPR ;      ///// msb of multiplication --> special register
 reg [31:0] mul_res;
  
  
+reg sign = 0, zero = 0, overflow = 0, carry = 0; ///condition flag
+reg [16:0] temp_sum;
  
-
+reg jmp_flag = 0;
+reg stop = 0;
  
+task decode_inst();
+ begin
+   
+jmp_flag = 1'b0;
+stop     = 1'b0;
  
- 
- 
-//task decode_inst();
-always@(*)
-begin
 case(`oper_type)
 ///////////////////////////////
 `movsgpr: begin
@@ -208,18 +223,85 @@ end
 end
  
 /////////////////////////////////////////////////////////////
-endcase
+ 
+`jump: begin
+ jmp_flag = 1'b1;
 end
-
+ 
+`jcarry: begin
+  if(carry == 1'b1)
+     jmp_flag = 1'b1;
+   else
+     jmp_flag = 1'b0; 
+end
+ 
+`jsign: begin
+  if(sign == 1'b1)
+     jmp_flag = 1'b1;
+   else
+     jmp_flag = 1'b0; 
+end
+ 
+`jzero: begin
+  if(zero == 1'b1)
+     jmp_flag = 1'b1;
+   else
+     jmp_flag = 1'b0; 
+end
+ 
+ 
+`joverflow: begin
+  if(overflow == 1'b1)
+     jmp_flag = 1'b1;
+   else
+     jmp_flag = 1'b0; 
+end
+ 
+`jnocarry: begin
+  if(carry == 1'b0)
+     jmp_flag = 1'b1;
+   else
+     jmp_flag = 1'b0; 
+end
+ 
+`jnosign: begin
+  if(sign == 1'b0)
+     jmp_flag = 1'b1;
+   else
+     jmp_flag = 1'b0; 
+end
+ 
+`jnozero: begin
+  if(zero == 1'b0)
+     jmp_flag = 1'b1;
+   else
+     jmp_flag = 1'b0; 
+end
+ 
+ 
+`jnooverflow: begin
+  if(overflow == 1'b0)
+     jmp_flag = 1'b1;
+   else
+     jmp_flag = 1'b0; 
+end
+ 
+////////////////////////////////////////////////////////////
+`halt : begin
+stop = 1'b1;
+end
+ 
+endcase
+ 
+end
+endtask
  
  
  
 ///////////////////////logic for condition flag
-reg sign = 0, zero = 0, overflow = 0, carry = 0;
-reg [16:0] temp_sum;
  
-//task decode_condflag();
-always@(*)
+ 
+task decode_condflag();
 begin
  
 /////////////////sign bit
@@ -247,9 +329,10 @@ if(`oper_type == `add)
         carry  = 1'b0;
     end
  
+ 
 ///////////////////// zero bit
  
- zero =  ( ~(|GPR[`rdst]) | ~(|SGPR[15:0]) )  ; 
+ zero =   ( ~(|GPR[`rdst]) ~(|SGPR[15:0]) ); 
  
  
 //////////////////////overflow bit
@@ -274,33 +357,177 @@ if(`oper_type == `add)
      end
  
 end
-
-
-
-
-
+endtask
  
  
- ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+ 
+ 
+ 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
  
 /////////////////////////////////////////////
 ///////////reading program
-
-
-
-reg [3:0] pc; // Program counter to keep track of the instruction address
-  always @(posedge clk) begin
-    // Fetch the instruction from the instruction memory
-    IR <= inst_mem[pc];
-
-    // Increment the program counter to fetch the next instruction
-    pc <= pc + 1;
+ 
+initial begin
+$readmemb("inst_data.mem",inst_mem);
+end
+ 
+////////////////////////////////////////////////////
+//////////reading instructions one after another
+reg [2:0] count = 0;
+integer PC = 0;
+/*
+always@(posedge clk)
+begin
+  if(sys_rst)
+   begin
+     count <= 0;
+     PC    <= 0;
+   end
+   else 
+   begin
+     if(count < 4)
+     begin
+     count <= count + 1;
+     end
+     else
+     begin
+     count <= 0;
+     PC    <= PC + 1;
+     end
+ end
+end
+*/
+////////////////////////////////////////////////////
+/////////reading instructions 
+/*
+always@(*)
+begin
+if(sys_rst == 1'b1)
+IR = 0;
+else
+begin
+IR = inst_mem[PC];
+decode_inst();
+decode_condflag();
+end
+end
+*/
+////////////////////////////////////////////////////
+////////////////////////////////// fsm states
+parameter idle = 0, fetch_inst = 1, dec_exec_inst = 2, next_inst = 3, sense_halt = 4, delay_next_inst = 5;
+//////idle : check reset state
+///// fetch_inst : load instrcution from Program memory
+///// dec_exec_inst : execute instruction + update condition flag
+///// next_inst : next instruction to be fetched
+reg [2:0] state = idle, next_state = idle;
+////////////////////////////////// fsm states
+ 
+///////////////////reset decoder
+always@(posedge clk)
+begin
+ if(sys_rst)
+   state <= idle;
+ else
+   state <= next_state; 
+end
+ 
+ 
+//////////////////next state decoder + output decoder
+ 
+always@(*)
+begin
+  case(state)
+   idle: begin
+     IR         = 32'h0;
+     PC         = 0;
+     next_state = fetch_inst;
+   end
+ 
+  fetch_inst: begin
+    IR          =  inst_mem[PC];   
+    next_state  = dec_exec_inst;
   end
-
+  
+  dec_exec_inst: begin
+    decode_inst();
+    decode_condflag();
+    next_state  = delay_next_inst;   
+  end
+  
+  
+  delay_next_inst:begin
+  if(count < 4)
+       next_state  = delay_next_inst;       
+     else
+       next_state  = next_inst;
+  end
+  
+  next_inst: begin
+      next_state = sense_halt;
+      if(jmp_flag == 1'b1)
+        PC = `isrc;
+      else
+        PC = PC + 1;
+  end
+  
+  
+ sense_halt: begin
+    if(stop == 1'b0)
+      next_state = fetch_inst;
+    else if(sys_rst == 1'b1)
+      next_state = idle;
+    else
+      next_state = sense_halt;
+ end
+  
+  default : next_state = idle;
+  
+  endcase
+  
+end
+ 
+ 
+////////////////////////////////// count update 
+ 
+always@(posedge clk)
+begin
+case(state)
+ 
+ idle : begin
+    count <= 0;
+ end
+ 
+ fetch_inst: begin
+   count <= 0;
+ end
+ 
+ dec_exec_inst : begin
+   count <= 0;    
+ end  
+ 
+ delay_next_inst: begin
+   count  <= count + 1;
+ end
+ 
+  next_inst : begin
+    count <= 0;
+ end
+ 
+  sense_halt : begin
+    count <= 0;
+ end
+ 
+ default : count <= 0;
+ 
+  
+endcase
+end
+ 
  
  
 endmodule
+ 
+ 
+ 
 
- 
-////////////////////////////////////////////////////////////////////////////
- 
