@@ -1,99 +1,135 @@
-# Microprocessor Design in Verilog
 
-## Project Overview
 
-This project presents a simple CPU design implemented in Verilog. The CPU supports basic arithmetic, logical, load/store, and branch instructions. The design includes components such as a program memory, data memory, general-purpose registers, and a special-purpose register for handling multiplication results. The CPU operates based on a finite state machine (FSM) with different states for instruction fetch, decode, execution, and handling halts.
+# RV32I RISC V Pipelined Processor with Full Hazard Handling
 
-## Key Components
+This repository contains the design and implementation of a **pipelined processor** in Verilog with **full hazard handling**. The processor design is based on a 5-stage pipeline architecture with mechanisms to handle **data hazards**, **control hazards**, and **structural hazards**. The design includes critical components such as the ALU, control unit, register file, data memory, instruction memory, and hazard unit.
 
-### Instruction Register (IR)
-The instruction register (IR) holds the current instruction to be executed. The instruction format is as follows:
-- `IR[31:27]`: Operation Type
-- `IR[26:22]`: Destination Register
-- `IR[21:17]`: Source Register 1
-- `IR[16]`: Immediate Mode Selector
-- `IR[15:11]`: Source Register 2
-- `IR[15:0]`: Immediate Value
+## Features
 
-### General Purpose Registers (GPR)
-There are 32 general-purpose registers (`GPR[0]` to `GPR[31]`) used for various operations.
+- **5-Stage Pipeline**: Instruction Fetch (IF), Instruction Decode (ID), Execute (EX), Memory Access (MEM), Write-back (WB).
+- **Full Hazard Handling**:
+  - **Data Hazards**: Managed through forwarding and stalling.
+  - **Control Hazards**: Managed through branch prediction and stalling.
+  - **Structural Hazards**: Avoided by ensuring no resource conflicts in the pipeline.
+- **Forwarding Unit**: Resolves read-after-write (RAW) data hazards by forwarding values from later stages to earlier ones.
+- **Stalling Unit**: Inserts no-op instructions in the pipeline to handle data and control hazards.
+- **Hazard Unit**: Responsible for detecting and resolving pipeline hazards.
 
-### Special Purpose Register (SGPR)
-The special-purpose register (`SGPR`) is used to store the most significant bits of the multiplication result.
+## Folder Structure
 
-### Program and Data Memory
-- `inst_mem`: Program memory, storing the instructions.
-- `data_mem`: Data memory, storing data values.
+The repository follows a modular structure for ease of development and testing:
 
-### Condition Flags
-- `sign`: Sign flag, indicates the sign of the result.
-- `zero`: Zero flag, indicates if the result is zero.
-- `overflow`: Overflow flag, indicates arithmetic overflow.
-- `carry`: Carry flag, indicates a carry in arithmetic operations.
+```
+pipelined-processor-with-hazard-handling/
+│
+├── src/                  # Verilog source files (all the Verilog code for your processor)
+│   ├── ALU.v             # The ALU module performs arithmetic and logical operations.
+│   ├── ControlUnit.v     # The control unit generates control signals for the processor.
+│   ├── DataMemory.v      # The data memory module simulates memory access operations (load/store).
+│   ├── HazardUnit.v      # The hazard detection and forwarding unit (handles stalling and forwarding).
+│   ├── InstructionMemory.v  # Models instruction memory, stores program code.
+│   ├── RegisterFile.v    # The register file stores registers and handles read/write operations.
+│   ├── Processor.v       # Main processor module, connects all components (ALU, Control Unit, etc.).
+│   ├── TopModule.v       # The top-level module if you have a higher-level design (optional).
+│   └── ...               # Any other Verilog files like additional modules or helpers.
+│
+├── tb/                   # Testbenches (files for testing the functionality of modules)
+│   ├── ALU_tb.v          # Testbench for the ALU module to verify its correctness.
+│   ├── ControlUnit_tb.v  # Testbench for the Control Unit to test control signal generation.
+│   ├── Processor_tb.v    # Testbench for the overall Processor to test end-to-end functionality.
+│   └── ...               # Testbenches for other modules or individual components.
+│
+├── doc/                  # Documentation (files that explain your design and architecture)
+│   └── architecture.md   # Document explaining the architecture of the processor and its components.
+│
+├── README.md             # The readme file that explains the project, setup, and usage.
+├── Makefile              # Makefile for automating compilation and simulation (optional).
+└── LICENSE               # The license file, such as MIT or GPL, for open-source licensing.
+```
 
-### Control Signals
-- `jmp_flag`: Jump flag, used to control jump operations.
-- `stop`: Stop signal, used to halt the CPU.
+## Components
 
-## Operation Types
-The CPU supports various operations categorized into arithmetic, logical, load/store, and branch instructions.
+### 1. **Control Unit**
+The control unit generates the necessary control signals (`RegWrite`, `MemWrite`, `Branch`, `ALUControl`, etc.) based on the instruction type. It determines whether the operation is arithmetic, logical, or memory-related.
 
-### Arithmetic Operations
-- `movsgpr`: Move from SGPR to GPR
-- `mov`: Move value between registers or immediate to register
-- `add`: Addition
-- `sub`: Subtraction
-- `mul`: Multiplication
+### 2. **ALU (Arithmetic Logic Unit)**
+The ALU performs arithmetic and logical operations such as addition, subtraction, AND, OR, etc. It also generates a zero flag based on the result of the operation.
 
-### Logical Operations
-- `ror`: Bitwise OR
-- `rand`: Bitwise AND
-- `rxor`: Bitwise XOR
-- `rxnor`: Bitwise XNOR
-- `rnand`: Bitwise NAND
-- `rnor`: Bitwise NOR
-- `rnot`: Bitwise NOT
+### 3. **Data Memory**
+Data memory stores and retrieves data from the processor's memory during execution. It handles read and write operations and is used by load and store instructions.
 
-### Load and Store Instructions
-- `storereg`: Store register content in data memory
-- `storedin`: Store `din` bus content in data memory
-- `senddout`: Send data from data memory to `dout` bus
-- `sendreg`: Send data from data memory to register
+### 4. **Instruction Memory**
+Instruction memory holds the program code and supplies the instructions to be fetched during the Instruction Fetch (IF) stage.
 
-### Branch and Jump Instructions
-- `jump`: Unconditional jump
-- `jcarry`: Jump if carry flag is set
-- `jnocarry`: Jump if carry flag is not set
-- `jsign`: Jump if sign flag is set
-- `jnosign`: Jump if sign flag is not set
-- `jzero`: Jump if zero flag is set
-- `jnozero`: Jump if zero flag is not set
-- `joverflow`: Jump if overflow flag is set
-- `jnooverflow`: Jump if overflow flag is not set
+### 5. **Register File**
+The register file holds the general-purpose registers of the processor. It handles read and write operations for registers during the Instruction Decode (ID) and Write-back (WB) stages.
 
-### Halt Instruction
-- `halt`: Stop the CPU
+### 6. **Hazard Unit**
+The hazard unit detects data and control hazards in the pipeline and triggers forwarding or stalling mechanisms to resolve them. It ensures that the pipeline runs smoothly without incorrect data being used.
 
-## Finite State Machine (FSM)
-The CPU operates based on an FSM with the following states:
-- `idle`: Initial state, checks the reset state.
-- `fetch_inst`: Fetches the instruction from program memory.
-- `dec_exec_inst`: Decodes and executes the instruction, updates condition flags.
-- `delay_next_inst`: Wait state for instruction execution.
-- `next_inst`: Prepares for the next instruction.
-- `sense_halt`: Checks if the CPU should halt or continue.
 
-## Detailed Workflow
-1. **Reset and Initialization**: On reset (`sys_rst`), the CPU initializes the program counter (`PC`) and instruction register (`IR`).
-2. **Instruction Fetch**: In the `fetch_inst` state, the CPU fetches the instruction from program memory using the program counter (`PC`).
-3. **Instruction Decode and Execute**: In the `dec_exec_inst` state, the CPU decodes the fetched instruction and performs the corresponding operation. Condition flags are updated based on the operation's result.
-4. **Delay for Next Instruction**: The `delay_next_inst` state provides a wait period before moving to the next instruction.
-5. **Next Instruction**: In the `next_inst` state, the CPU updates the program counter based on jump conditions or simply increments it to fetch the next instruction.
-6. **Halt Detection**: In the `sense_halt` state, the CPU checks if it should halt based on the `halt` instruction or continue executing instructions.
+## Getting Started
 
-## How to Run
-1. **Program Memory Initialization**: The program memory is initialized using the `inst_data.mem` file. Ensure this file contains the binary representation of the instructions to be executed.
-2. **Simulation**: Use a Verilog simulator to run the `top` module. Apply the clock (`clk`) and reset (`sys_rst`) signals as needed.
+### Prerequisites
 
-## Conclusion
-This simple CPU design demonstrates the fundamental concepts of instruction fetch, decode, execute, and condition flag updates. The modular design and FSM-based operation make it easy to understand and extend for more complex CPU functionalities. This project serves as a solid foundation for exploring CPU design and digital logic concepts in Verilog.
+- **Vivado** (for Verilog design, synthesis, and simulation)
+- A text editor or IDE for Verilog code (e.g., VS Code with Verilog extension)
+
+### Setting Up the Project in Vivado
+
+1. **Clone the repository**:
+   First, clone the repository to your local machine:
+   ```bash
+   git clone https://github.com/yourusername/pipelined-processor-with-hazard-handling.git
+   cd pipelined-processor-with-hazard-handling
+   ```
+
+2. **Open Vivado**:
+   Open Vivado and create a new project:
+
+   - Launch Vivado.
+   - Select **Create New Project**.
+   - Name the project and select a location for the project files.
+   - Choose the appropriate FPGA family or set it as **None** if you're targeting a simulation only project.
+   - Click **Next** until you reach the **Default Part** selection and set it as appropriate for your hardware (or select **None** for simulation).
+
+3. **Add Verilog Files**:
+   - In the Vivado project window, select **Add Sources** and add all the Verilog files from the `src/` directory. This will include modules like `ALU.v`, `ControlUnit.v`, `Processor.v`, and others.
+   - Ensure that all files are included in the **Design Sources**.
+
+4. **Set Up Testbench**:
+   - Add the testbenches located in the `tb/` folder as **Simulation Sources** in Vivado.
+   - Choose the main testbench file, for example, `Processor_tb.v`, as your top-level simulation module.
+
+5. **Run Synthesis (Optional)**:
+   - If you want to perform synthesis, select **Run Synthesis** in Vivado. This step is optional and necessary if you're targeting an FPGA.
+
+6. **Run Simulation**:
+   - Select **Run Simulation** from the Vivado toolbar and choose **Simulation Settings**. 
+   - Run the **Behavioral Simulation** or **Post-Synthesis Simulation** depending on your project.
+   - Vivado will compile your Verilog code and testbench, and launch the **Simulator** to show the waveform and results.
+
+   You can also use the **GUI** to interact with the simulation results or run the simulation from the **Tcl Console** using:
+   ```tcl
+   launch_simulation
+   ```
+
+7. **View Simulation Results**:
+   - Once the simulation completes, you can analyze the waveform and debug the design.
+
+### Example of Running a Simulation (Vivado GUI)
+
+1. Open the **Simulation** window in Vivado after creating the testbench.
+2. Click on **Run Simulation** > **Run Behavioral Simulation** (or Post-Synthesis, depending on your choice).
+3. Observe the **Simulation Results** in the waveform viewer.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- The project is based on standard pipelined processor architecture and can be extended with additional features such as branch prediction, cache memory, and multi-cycle operations.
+- Special thanks to the textbook : Sarah Harris, David Harris - Digital Design and Computer Architecture_ RISC-V Edition-Morgan Kaufmann (2021) that provide detailed explanations of pipelined processors and Verilog design.
+
+
