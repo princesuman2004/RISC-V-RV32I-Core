@@ -43,7 +43,6 @@ pipelined-processor-with-hazard-handling/
 │   └── architecture.md   # Document explaining the architecture of the processor and its components.
 │
 ├── README.md             # The readme file that explains the project, setup, and usage.
-├── Makefile              # Makefile for automating compilation and simulation (optional).
 └── LICENSE               # The license file, such as MIT or GPL, for open-source licensing.
 ```
 
