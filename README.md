@@ -95,12 +95,12 @@ The hazard unit detects data and control hazards in the pipeline and triggers fo
    - Click **Next** until you reach the **Default Part** selection and set it as appropriate for your hardware (or select **None** for simulation).
 
 3. **Add Verilog Files**:
-   - In the Vivado project window, select **Add Sources** and add all the Verilog files from the `src/` directory. This will include modules like `ALU.v`, `ControlUnit.v`, `Processor.v`, and others.
+   - In the Vivado project window, select **Add Sources** and add all the Verilog files from the `src/` directory. This will include modules like `TopModule.v`, `control_unit.v`, `ex_stage`, and others.
    - Ensure that all files are included in the **Design Sources**.
 
 4. **Set Up Testbench**:
    - Add the testbenches located in the `tb/` folder as **Simulation Sources** in Vivado.
-   - Choose the main testbench file, for example, `Processor_tb.v`, as your top-level simulation module.
+   - Choose the main testbench file, for example, `top_module_tb.v`, as your top-level simulation module.
 
 5. **Run Synthesis (Optional)**:
    - If you want to perform synthesis, select **Run Synthesis** in Vivado. This step is optional and necessary if you're targeting an FPGA.
