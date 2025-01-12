@@ -10,131 +10,174 @@ module ControlUnit(
     output reg [1:0] ImmSrcD            // Control signal for immediate generation
 );
 
-    // Extract fields from the instruction
-    wire [6:0] opcode = InstrD[6:0];   // Opcode (bits 6-0)
-    wire [2:0] funct3 = InstrD[14:12]; // funct3 (bits 14-12)
-    wire funct7_5 = InstrD[30];        // Bit 5 of funct7 (bit 30)
+// Internal wires
+wire [6:0] opcode = InstrD[6:0];
+wire [2:0] funct3 = InstrD[14:12];
+wire [6:0] funct7 = InstrD[31:25];
+wire [1:0] ALUOpD;
 
-    // Define opcode values for different instruction types
-    localparam R_TYPE  = 7'b0110011;   // R-type instructions
-    localparam I_TYPE  = 7'b0010011;   // I-type instructions
-    localparam LOAD    = 7'b0000011;   // Load instructions
-    localparam STORE   = 7'b0100011;   // Store instructions
-    localparam BRANCH  = 7'b1100011;   // Branch instructions
-    localparam JAL     = 7'b1101111;   // JAL (jump and link)
-    localparam JALR    = 7'b1100111;   // JALR (jump and link register)
+wire RegWriteD_internal;
+wire [1:0] ImmSrcD_internal;
+wire ALUSrcD_internal;
+wire MemWriteD_internal;
+wire [1:0] ResultSrcD_internal;
+wire BranchD_internal;
+wire JumpD_internal;
+wire [2:0] ALUControlD_internal;
 
-    always @(*) begin
-        // Default values for control signals
-        RegWriteD   = 0;
-        MemWriteD   = 0;
-        ResultSrcD  = 2'b00;
-        ALUControlD = 3'b000;
-        ALUSrcD     = 0;
-        BranchD     = 0;
-        JumpD       = 0;
-        ImmSrcD     = 2'b00;
+// Instantiate Main_Decoder
+Main_Decoder main_decoder (
+    .opcode(opcode),
+    .RegWriteD(RegWriteD_internal),
+    .ImmSrcD(ImmSrcD_internal),
+    .ALUSrcD(ALUSrcD_internal),
+    .MemWriteD(MemWriteD_internal),
+    .ResultSrcD(ResultSrcD_internal),
+    .BranchD(BranchD_internal),
+    .ALUOpD(ALUOpD),
+    .JumpD(JumpD_internal)
+);
 
-        case (opcode)
-            R_TYPE: begin
-                RegWriteD   = 1;               // Enable register write
-                ResultSrcD  = 2'b00;           // Result comes from ALU
-                ALUSrcD     = 0;               // ALU operand comes from register
-                BranchD     = 0;
-                JumpD       = 0;
-                ImmSrcD     = 2'b00;           // No immediate
+// Instantiate ALU_Decoder
+ALU_Decoder alu_decoder (
+    .ALUOpD(ALUOpD),
+    .funct3(funct3),
+    .funct7(funct7),
+    .ALUControlD(ALUControlD_internal)
+);
 
-                // ALU control based on funct3 and funct7_5
-                case (funct3)
-                    3'b000: ALUControlD = (funct7_5) ? 3'b001 : 3'b000; // SUB or ADD
-                    3'b111: ALUControlD = 3'b100; // AND
-                    3'b110: ALUControlD = 3'b101; // OR
-                    default: ALUControlD = 3'b000; // Default to ADD
-                endcase
-            end
+// Assign internal signals to output ports
+always @(*) begin
+    RegWriteD = RegWriteD_internal;
+    ImmSrcD = ImmSrcD_internal;
+    ALUSrcD = ALUSrcD_internal;
+    MemWriteD = MemWriteD_internal;
+    ResultSrcD = ResultSrcD_internal;
+    BranchD = BranchD_internal;
+    JumpD = JumpD_internal;
+    ALUControlD = ALUControlD_internal;
+end
 
-            I_TYPE: begin
-                RegWriteD   = 1;               // Enable register write
-                ResultSrcD  = 2'b00;           // Result comes from ALU
-                ALUSrcD     = 1;               // ALU operand comes from immediate
-                BranchD     = 0;
-                JumpD       = 0;
-                ImmSrcD     = 2'b00;           // Immediate for I-type
+endmodule
 
-                case (funct3)
-                    3'b000: ALUControlD = 3'b000; // ADDI
-                    3'b111: ALUControlD = 3'b100; // ANDI
-                    3'b110: ALUControlD = 3'b101; // ORI
-                    default: ALUControlD = 3'b000; // Default to ADD
-                endcase
-            end
 
-            LOAD: begin
-                RegWriteD   = 1;               // Enable register write
-                MemWriteD   = 0;               // Disable memory write
-                ResultSrcD  = 2'b01;           // Result comes from memory
-                ALUSrcD     = 1;               // ALU operand comes from immediate
-                BranchD     = 0;
-                JumpD       = 0;
-                ImmSrcD     = 2'b00;           // Immediate for load address
-                ALUControlD = 3'b000;          // Default to ADD for address calculation
-            end
 
-            STORE: begin
-                RegWriteD   = 0;               // Disable register write
-                MemWriteD   = 1;               // Enable memory write
-                ResultSrcD  = 2'b00;           // No register write-back
-                ALUSrcD     = 1;               // ALU operand comes from immediate
-                BranchD     = 0;
-                JumpD       = 0;
-                ImmSrcD     = 2'b01;           // Immediate for store address
-                ALUControlD = 3'b000;          // Default to ADD for address calculation
-            end
+module Main_Decoder(
+    input [6:0] opcode,
+    output reg RegWriteD,
+    output reg [1:0] ImmSrcD,
+    output reg ALUSrcD,
+    output reg MemWriteD,
+    output reg [1:0] ResultSrcD,
+    output reg BranchD,
+    output reg [1:0] ALUOpD,
+    output reg JumpD
+);
 
-            BRANCH: begin
-                RegWriteD   = 0;               // Disable register write
-                MemWriteD   = 0;               // Disable memory write
-                ResultSrcD  = 2'b00;           // No result
-                ALUSrcD     = 0;               // ALU operand comes from register
-                BranchD     = 1;               // Enable branching
-                JumpD       = 0;
-                ImmSrcD     = 2'b10;           // Immediate for branch offset
-                ALUControlD = 3'b001;          // Subtract for comparison
-            end
+always @(*) begin
+    case(opcode)
+        7'b0000011: begin // lw
+            RegWriteD = 1;
+            ImmSrcD = 2'b00;
+            ALUSrcD = 1;
+            MemWriteD = 0;
+            ResultSrcD = 2'b01;
+            BranchD = 0;
+            ALUOpD = 2'b00;
+            JumpD = 0;
+        end
+        7'b0100011: begin // sw
+            RegWriteD = 0;
+            ImmSrcD = 2'b01;
+            ALUSrcD = 1;
+            MemWriteD = 1;
+            ResultSrcD = 2'bxx;
+            BranchD = 0;
+            ALUOpD = 2'b00;
+            JumpD = 0;
+        end
+        7'b0110011: begin // R-type
+            RegWriteD = 1;
+            ImmSrcD = 2'bxx;
+            ALUSrcD = 0;
+            MemWriteD = 0;
+            ResultSrcD = 2'b00;
+            BranchD = 0;
+            ALUOpD = 2'b10;
+            JumpD = 0;
+        end
+        7'b1100011: begin // beq
+            RegWriteD = 0;
+            ImmSrcD = 2'b10;
+            ALUSrcD = 0;
+            MemWriteD = 0;
+            ResultSrcD = 2'bxx;
+            BranchD = 1;
+            ALUOpD = 2'b01;
+            JumpD = 0;
+        end
+        7'b0010011: begin // I-type ALU
+            RegWriteD = 1;
+            ImmSrcD = 2'b00;
+            ALUSrcD = 1;
+            MemWriteD = 0;
+            ResultSrcD = 2'b00;
+            BranchD = 0;
+            ALUOpD = 2'b10;
+            JumpD = 0;
+        end
+        7'b1101111: begin // jal
+            RegWriteD = 1;
+            ImmSrcD = 2'b11;
+            ALUSrcD = 'bx;
+            MemWriteD = 0;
+            ResultSrcD = 2'b10;
+            BranchD = 0;
+            ALUOpD = 2'bxx;
+            JumpD = 1;
+        end
+        default: begin
+            RegWriteD = 0;
+            ImmSrcD = 2'b00;
+            ALUSrcD = 0;
+            MemWriteD = 0;
+            ResultSrcD = 2'b00;
+            BranchD = 0;
+            ALUOpD = 2'b00;
+            JumpD = 0;
+        end
+    endcase
+end
 
-            JAL: begin
-                RegWriteD   = 1;               // Enable register write
-                MemWriteD   = 0;               // Disable memory write
-                ResultSrcD  = 2'b10;           // Result comes from PC+4
-                ALUSrcD     = 0;               // No ALU operation
-                BranchD     = 0;
-                JumpD       = 1;               // Enable jump
-                ImmSrcD     = 2'b11;           // Immediate for jump offset
-            end
+endmodule
 
-            JALR: begin
-                RegWriteD   = 1;               // Enable register write
-                MemWriteD   = 0;               // Disable memory write
-                ResultSrcD  = 2'b10;           // Result comes from PC+4
-                ALUSrcD     = 1;               // ALU operand comes from immediate
-                BranchD     = 0;
-                JumpD       = 1;               // Enable jump
-                ImmSrcD     = 2'b00;           // Immediate for JALR
-                ALUControlD = 3'b000;          // ADD for target address calculation
-            end
+module ALU_Decoder(
+    input [1:0] ALUOpD,
+    input [2:0] funct3,
+    input [6:0] funct7,
+    output reg [2:0] ALUControlD
+);
 
-            default: begin
-                // Default case: Disable all controls
-                RegWriteD   = 0;
-                MemWriteD   = 0;
-                ResultSrcD  = 2'b00;
-                ALUControlD = 3'b000;
-                ALUSrcD     = 0;
-                BranchD     = 0;
-                JumpD       = 0;
-                ImmSrcD     = 2'b00;
-            end
-        endcase
-    end
+always @(*) begin
+    case(ALUOpD)
+        2'b00: ALUControlD = 3'b000; // add for lw, sw
+        2'b01: ALUControlD = 3'b001; // subtract for beq
+        2'b10: begin
+            case(funct3)
+                3'b000: begin
+                    if (funct7 == 7'b0000000)
+                        ALUControlD = 3'b000; // add
+                    else if (funct7 == 7'b0100000)
+                        ALUControlD = 3'b001; // sub
+                end
+                3'b010: ALUControlD = 3'b101; // slt
+                3'b110: ALUControlD = 3'b011; // or
+                3'b111: ALUControlD = 3'b010; // and
+                default: ALUControlD = 3'b000;
+            endcase
+        end
+        default: ALUControlD = 3'b000;
+    endcase
+end
 
 endmodule
