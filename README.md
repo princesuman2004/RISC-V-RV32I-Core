@@ -47,6 +47,10 @@ pipelined-processor-with-hazard-handling/
 └── LICENSE                    # The license file, such as MIT or GPL, for open-source licensing.
 
 ```
+## Processor Architecture
+
+Here is the block diagram of the pipelined processor:
+![image](https://github.com/user-attachments/assets/46e64f6c-b77d-45e1-b990-af4b6785354a)
 
 ## Components
 
