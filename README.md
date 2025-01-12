@@ -23,27 +23,29 @@ The repository follows a modular structure for ease of development and testing:
 pipelined-processor-with-hazard-handling/
 │
 ├── src/                  # Verilog source files (all the Verilog code for your processor)
-│   ├── ALU.v             # The ALU module performs arithmetic and logical operations.
-│   ├── ControlUnit.v     # The control unit generates control signals for the processor.
-│   ├── DataMemory.v      # The data memory module simulates memory access operations (load/store).
-│   ├── HazardUnit.v      # The hazard detection and forwarding unit (handles stalling and forwarding).
-│   ├── InstructionMemory.v  # Models instruction memory, stores program code.
-│   ├── RegisterFile.v    # The register file stores registers and handles read/write operations.
-│   ├── Processor.v       # Main processor module, connects all components (ALU, Control Unit, etc.).
-│   ├── TopModule.v       # The top-level module if you have a higher-level design (optional).
-│   └── ...               # Any other Verilog files like additional modules or helpers.
+│   ├── top_module.v              # The top-level module that connects all components.
+│   ├── control_unit.v           # The control unit generates control signals for the processor.
+│   ├── ex_mem_pipeline_reg.v    # Pipeline register between EX and MEM stages.
+│   ├── ex_stage.v               # The execution stage of the processor (handles ALU operations).
+│   ├── extend_unit.v            # Extension unit for handling instruction parsing.
+│   ├── hazard_unit.v            # Hazard detection and forwarding unit for handling pipeline hazards.
+│   ├── id_ex_pipeline_reg.v     # Pipeline register between ID and EX stages.
+│   ├── if_id_reg.v              # Pipeline register between IF and ID stages.
+│   ├── if_stage.v               # Instruction Fetch (IF) stage.
+│   ├── memory_stage.v           # Memory access stage (handles load/store instructions).
+│   ├── memwb_pipeline_reg.v     # Pipeline register between MEM and WB stages.
+│   ├── reg_file.v               # Register file to store processor registers.
+│   └── wb_stage.v               # Write-back stage of the processor (handles writing results to registers).
 │
-├── tb/                   # Testbenches (files for testing the functionality of modules)
-│   ├── ALU_tb.v          # Testbench for the ALU module to verify its correctness.
-│   ├── ControlUnit_tb.v  # Testbench for the Control Unit to test control signal generation.
-│   ├── Processor_tb.v    # Testbench for the overall Processor to test end-to-end functionality.
-│   └── ...               # Testbenches for other modules or individual components.
+├── tb/                       # Testbenches (files for testing the functionality of modules)
+│   ├── top_module_tb.v         # Testbench for the top module (overall processor simulation).
+│   ├── data_mem.mem            # Memory initialization file for data memory.
+│   ├── instr_mem.mem           # Memory initialization file for instruction memory.
+│   └── regfile.mem             # Memory initialization file for the register file.
 │
-├── doc/                  # Documentation (files that explain your design and architecture)
-│   └── architecture.md   # Document explaining the architecture of the processor and its components.
-│
-├── README.md             # The readme file that explains the project, setup, and usage.
-└── LICENSE               # The license file, such as MIT or GPL, for open-source licensing.
+├── README.md                  # The readme file that explains the project, setup, and usage.
+└── LICENSE                    # The license file, such as MIT or GPL, for open-source licensing.
+
 ```
 
 ## Components
