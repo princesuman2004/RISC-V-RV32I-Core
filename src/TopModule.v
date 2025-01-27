@@ -112,7 +112,6 @@ module Top_Level(
         .RdW(RdW),
         .RegWriteM(RegWriteM),
         .RegWriteW(RegWriteW),
-       // .RegWriteE(RegWriteE),    // Added connection
         .ResultSrcE(ResultSrcE),
         .PCSrcE(PCSrcE),
         .StallF(StallF),
@@ -127,7 +126,7 @@ module Top_Level(
     ID_EX_Pipeline_Reg id_ex_pipeline (
         .clk(clk),
         .reset(result),
-        .FlushE(FlushE),          // Changed from reset to FlushE
+        .FlushE(FlushE),          
         .RD1(RD1D),
         .RD2(RD2D),
         .PCD(PCD),
