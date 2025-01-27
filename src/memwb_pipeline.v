@@ -1,30 +1,40 @@
-// MEM/WB Pipeline Register
 module MEM_WB_Pipeline (
-    input wire clk,                  // Clock signal
-    input wire RegWriteM,            // Register Write Enable from MEM stage
-    input wire [1:0] ResultSrcM,     // Result selection signal from MEM stage
-    input wire [31:0] ReadDataM,     // Data read from memory
-    input wire [31:0] ALUResultM,    // ALU result from MEM stage
-    input wire [31:0] PCPlus4M,      // PC+4 from MEM stage
-    input wire [4:0] RdM,            // Destination register from MEM stage
+    input wire clk,                  
+    input wire reset,                // Added reset signal
+    input wire RegWriteM,            
+    input wire [1:0] ResultSrcM,     
+    input wire [31:0] ReadDataM,     
+    input wire [31:0] ALUResultM,    
+    input wire [31:0] PCPlus4M,      
+    input wire [4:0] RdM,            
 
-    output reg RegWriteW,            // Register Write Enable for WB stage
-    output reg [1:0] ResultSrcW,     // Result selection signal for WB stage
-    output reg [31:0] ReadDataW,     // Data read for WB stage
-    output reg [31:0] ALUResultW,    // ALU result for WB stage
-    output reg [31:0] PCPlus4W,      // PC+4 for WB stage
-    output reg [4:0] RdW             // Destination register for WB stage
+    output reg RegWriteW,            
+    output reg [1:0] ResultSrcW,     
+    output reg [31:0] ReadDataW,     
+    output reg [31:0] ALUResultW,    
+    output reg [31:0] PCPlus4W,      
+    output reg [4:0] RdW             
 );
 
-    // Sequential logic to store pipeline values
+    // Sequential logic with synchronous reset
     always @(posedge clk) begin
-        RegWriteW   <= RegWriteM;      // Pass RegWrite signal to WB stage
-        ResultSrcW  <= ResultSrcM;     // Pass ResultSrc signal to WB stage
-        ReadDataW   <= ReadDataM;      // Pass ReadData to WB stage
-        ALUResultW  <= ALUResultM;     // Pass ALUResult to WB stage
-        PCPlus4W    <= PCPlus4M;       // Pass PCPlus4 to WB stage
-        RdW         <= RdM;            // Pass destination register to WB stage
+        if (reset) begin
+            // Clear all signals on reset
+            RegWriteW   <= 1'b0;
+            ResultSrcW  <= 2'b00;
+            ReadDataW   <= 32'b0;
+            ALUResultW  <= 32'b0;
+            PCPlus4W    <= 32'b0;
+            RdW         <= 5'b0;
+        end else begin
+            // Properly latch all signals
+            RegWriteW   <= RegWriteM;
+            ResultSrcW  <= ResultSrcM;
+            ReadDataW   <= ReadDataM;
+            ALUResultW  <= ALUResultM;
+            PCPlus4W    <= PCPlus4M;
+            RdW         <= RdM;
+        end
     end
 
 endmodule
-
