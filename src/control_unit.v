@@ -60,8 +60,6 @@ end
 
 endmodule
 
-
-
 module Main_Decoder(
     input [6:0] opcode,
     output reg RegWriteD,
@@ -106,7 +104,7 @@ always @(*) begin
             ALUOpD = 2'b10;
             JumpD = 0;
         end
-        7'b1100011: begin // beq
+        7'b1100011: begin // Branch (beq, bne, etc.)
             RegWriteD = 0;
             ImmSrcD = 2'b10;
             ALUSrcD = 0;
@@ -136,6 +134,26 @@ always @(*) begin
             ALUOpD = 2'bxx;
             JumpD = 1;
         end
+        7'b0110111: begin // lui
+            RegWriteD = 1;
+            ImmSrcD = 2'b00;
+            ALUSrcD = 'bx;
+            MemWriteD = 0;
+            ResultSrcD = 2'b11;
+            BranchD = 0;
+            ALUOpD = 2'bxx;
+            JumpD = 0;
+        end
+        7'b0010111: begin // auipc
+            RegWriteD = 1;
+            ImmSrcD = 2'b00;
+            ALUSrcD = 1;
+            MemWriteD = 0;
+            ResultSrcD = 2'b00;
+            BranchD = 0;
+            ALUOpD = 2'b00;
+            JumpD = 0;
+        end
         default: begin
             RegWriteD = 0;
             ImmSrcD = 2'b00;
@@ -146,37 +164,6 @@ always @(*) begin
             ALUOpD = 2'b00;
             JumpD = 0;
         end
-    endcase
-end
-
-endmodule
-
-module ALU_Decoder(
-    input [1:0] ALUOpD,
-    input [2:0] funct3,
-    input [6:0] funct7,
-    output reg [2:0] ALUControlD
-);
-
-always @(*) begin
-    case(ALUOpD)
-        2'b00: ALUControlD = 3'b000; // add for lw, sw
-        2'b01: ALUControlD = 3'b001; // subtract for beq
-        2'b10: begin
-            case(funct3)
-                3'b000: begin
-                    if (funct7 == 7'b0000000)
-                        ALUControlD = 3'b000; // add
-                    else if (funct7 == 7'b0100000)
-                        ALUControlD = 3'b001; // sub
-                end
-                3'b010: ALUControlD = 3'b101; // slt
-                3'b110: ALUControlD = 3'b011; // or
-                3'b111: ALUControlD = 3'b010; // and
-                default: ALUControlD = 3'b000;
-            endcase
-        end
-        default: ALUControlD = 3'b000;
     endcase
 end
 
