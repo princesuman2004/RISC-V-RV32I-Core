@@ -1,27 +1,7 @@
-`timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 12.12.2024 12:20:22
-// Design Name: 
-// Module Name: ID_EX_Pipeline_Reg
-// Project Name: 
-// Target Devices: 
-// Tool Versions:
-// Description: ID/EX pipeline register module based on the datapath diagram.
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
 module ID_EX_Pipeline_Reg (
     input wire clk,
     input wire reset,
+    input wire FlushE,
 
     // Inputs from Decode Stage (ID)
     input wire [31:0] RD1,        // Register 1 value
@@ -58,12 +38,13 @@ module ID_EX_Pipeline_Reg (
 );
 
     always @(posedge clk or posedge reset) begin
-        if (reset) begin
+        if (reset||FlushE) begin
             // Reset all outputs to default values
             RD1E <= 32'b0;
             RD2E <= 32'b0;
             ImmExtE <= 32'b0;
             PCPlus4E <= 32'b0;
+            PCE <= 32'b0;
             Rs1E <= 5'b0;
             Rs2E <= 5'b0;
             RdE <= 5'b0;
@@ -74,7 +55,7 @@ module ID_EX_Pipeline_Reg (
             ResultSrcE <= 2'b0;
             BranchE <= 1'b0;     // Reset Branch signal
             JumpE <= 1'b0;       // Reset Jump signal
-            PCE <= 1'b0; 
+             
         end else begin
             // Store inputs into corresponding outputs
             RD1E <= RD1;
@@ -96,4 +77,3 @@ module ID_EX_Pipeline_Reg (
     end
 
 endmodule
-
