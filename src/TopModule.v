@@ -1,45 +1,47 @@
 `timescale 1ns /1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 12.12.2024 18:00:00
-// Design Name: 
-// Module Name: Top_Level
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: Top-level integration of the RISC-V processor pipeline, combining all modules.
-// 
-// Dependencies: Pipeline stages, hazard detection, forwarding unit, control unit, and others.
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
 
 module Top_Level(
-    input wire clk,             // Clock signal
-    input wire reset            // Reset signal
+    input wire clk,             
+    input wire reset            
 );
 
-    // Internal signals
-    wire [31:0] PCF, PCE, ImmExtE, InstrF, PCD, InstrD, ImmExtD, SrcAE, SrcBE, ALUResultE, MemDataM, ALUResultM,ALUResultW, ReadDataW,ReadDataM, ResultW, PCTargetE, PCPlus4F, PCPlus4D, PCPlus4E, PCPlus4M,WriteDataM,WriteDataE, PCPlus4W;
-    wire [31:0] RD1E, RD2E, RD1D, RD2D; // Updated naming for RD1D, RD2D
-    wire [2:0] ALUControlD, ALUControlE;
-    wire [1:0] ImmSrc, ResultSrcD, ResultSrcE, ResultSrcM, ResultSrcW, ForwardAE, ForwardBE;
-    wire [4:0] Rs1D, Rs2D, RdD, RdE, RdM, RdW, rs1, rs2;
-    wire [4:0]Rs1E, Rs2E;
-    wire StallF, StallD, FlushD, FlushE;
-    wire RegWriteD, RegWriteE, RegWriteM, RegWriteW, MemWriteD, MemWriteE, MemWriteM;
-    wire ALUSrcD, ALUSrcE, BranchD, BranchE, JumpD, JumpE, ZeroE, PCSrcE;
+    // IF Stage Signals
+    wire [31:0] PCF, InstrF, PCPlus4F;
+    wire StallF;
+
+    // ID Stage Signals
+    wire [31:0] PCD, InstrD, PCPlus4D, ImmExtD, RD1D, RD2D;
+    wire StallD, FlushD;
+    wire [4:0] Rs1D, Rs2D, RdD;
+    wire RegWriteD, MemWriteD, ALUSrcD, BranchD, JumpD;
+    wire [2:0] ALUControlD;
+    wire [1:0] ResultSrcD, ImmSrcD;
+
+    // EX Stage Signals
+    wire [31:0] PCE, PCPlus4E, RD1E, RD2E, ImmExtE, PCTargetE, ALUResultE, WriteDataE;
+    wire [4:0] Rs1E, Rs2E, RdE;
+    wire RegWriteE, MemWriteE, ALUSrcE, BranchE, JumpE, ZeroE, PCSrcE;
+    wire [2:0] ALUControlE;
+    wire [1:0] ResultSrcE, ForwardAE, ForwardBE;
+    wire FlushE;
+
+    // MEM Stage Signals
+    wire [31:0] PCPlus4M, ALUResultM, WriteDataM, ReadDataM;
+    wire [4:0] RdM;
+    wire RegWriteM, MemWriteM;
+    wire [1:0] ResultSrcM;
+
+    // WB Stage Signals
+    wire [31:0] PCPlus4W, ALUResultW, ReadDataW, ResultW;
+    wire [4:0] RdW;
+    wire RegWriteW;
+    wire [1:0] ResultSrcW;
 
     // IF Stage
     IF_Stage if_stage (
         .clk(clk),
-        .enable(StallF),
         .reset(reset),
+        .StallF(StallF),        // Active high stall signal
         .PCSrcE(PCSrcE),
         .PCTargetE(PCTargetE),
         .InstrF(InstrF),
@@ -50,8 +52,9 @@ module Top_Level(
     // IF/ID Pipeline Register
     IF_ID_Pipeline_Reg if_id_reg (
         .clk(clk),
-        .reset(reset | FlushD),
-        .enable(StallD),
+        .reset(reset),
+        .FlushD(FlushD),
+        .StallD(StallD),        // Active high stall signal
         .PCF(PCF),
         .InstrF(InstrF),
         .PCPlus4F(PCPlus4F),
@@ -70,43 +73,46 @@ module Top_Level(
         .ALUSrcD(ALUSrcD),
         .BranchD(BranchD),
         .JumpD(JumpD),
-        .ImmSrcD(ImmSrc)
+        .ImmSrcD(ImmSrcD)
     );
 
-    // ID Stage
+    // Extract register addresses
+    assign Rs1D = InstrD[19:15];
+    assign Rs2D = InstrD[24:20];
+    assign RdD = InstrD[11:7];
+
+    // Extend Unit
     Extend_Unit extend_unit (
         .InstrD(InstrD),
-        .ImmSrc(ImmSrc),
+        .ImmSrc(ImmSrcD),
         .ImmExtD(ImmExtD)
     );
 
-    assign rs1 = InstrD[19:15];
-    assign rs2 = InstrD[24:20];
-
+    // Register File
     Register_File reg_file (
         .clk(clk),
         .reset(reset),
         .RegWriteW(RegWriteW),
-        .rs1(InstrD[19:15] ),
-        .rs2(InstrD[24:20]),
+        .rs1(Rs1D),
+        .rs2(Rs2D),
         .rd(RdW),
         .ResultW(ResultW),
-        .RD1(RD1D),  // Connected RD1D
-        .RD2(RD2D)   // Connected RD2D
+        .RD1(RD1D),
+        .RD2(RD2D)
     );
 
     // Hazard Unit
     Hazard_Unit hazard_unit (
-        .Rs1D(rs1),
-        .Rs2D(rs2),
+        .Rs1D(Rs1D),
+        .Rs2D(Rs2D),
         .Rs1E(Rs1E),
         .Rs2E(Rs2E),
         .RdE(RdE),
         .RdM(RdM),
         .RdW(RdW),
-       
         .RegWriteM(RegWriteM),
         .RegWriteW(RegWriteW),
+       // .RegWriteE(RegWriteE),    // Added connection
         .ResultSrcE(ResultSrcE),
         .PCSrcE(PCSrcE),
         .StallF(StallF),
@@ -116,19 +122,20 @@ module Top_Level(
         .ForwardAE(ForwardAE),
         .ForwardBE(ForwardBE)
     );
-    
 
     // ID/EX Pipeline Register
     ID_EX_Pipeline_Reg id_ex_pipeline (
         .clk(clk),
-        .reset(FlushE),
-        .RD1(RD1D),      // Input RD1D
-        .RD2(RD2D),      // Input RD2D
+        .reset(result),
+        .FlushE(FlushE),          // Changed from reset to FlushE
+        .RD1(RD1D),
+        .RD2(RD2D),
+        .PCD(PCD),
         .ImmExtD(ImmExtD),
         .PCPlus4D(PCPlus4D),
-        .Rs1D(InstrD[19:15]),
-        .Rs2D(InstrD[24:20]),
-        .RdD(InstrD[11:7]),
+        .Rs1D(Rs1D),
+        .Rs2D(Rs2D),
+        .RdD(RdD),
         .ALUControlD(ALUControlD),
         .ALUSrcD(ALUSrcD),
         .MemWriteD(MemWriteD),
@@ -136,8 +143,9 @@ module Top_Level(
         .ResultSrcD(ResultSrcD),
         .BranchD(BranchD),
         .JumpD(JumpD),
-        .RD1E(RD1E),      // Output RD1E
-        .RD2E(RD2E),      // Output RD2E
+        .RD1E(RD1E),
+        .RD2E(RD2E),
+        .PCE(PCE),
         .ImmExtE(ImmExtE),
         .PCPlus4E(PCPlus4E),
         .Rs1E(Rs1E),
@@ -149,17 +157,13 @@ module Top_Level(
         .RegWriteE(RegWriteE),
         .ResultSrcE(ResultSrcE),
         .BranchE(BranchE),
-        .JumpE(JumpE),
-        .PCD(PCD),
-        .PCE(PCE)
+        .JumpE(JumpE)
     );
 
     // EX Stage
-    assign PCSrcE = (BranchE & ZeroE) | JumpE;
-
     EX_Stage ex_stage (
-        .RD1E(RD1E),        // Connected RD1E
-        .RD2E(RD2E),        // Connected RD2E
+        .RD1E(RD1E),
+        .RD2E(RD2E),
         .PCE(PCE),
         .ImmExtE(ImmExtE),
         .ALUControlE(ALUControlE),
@@ -171,15 +175,18 @@ module Top_Level(
         .ALUResultE(ALUResultE),
         .ZeroE(ZeroE),
         .PCTargetE(PCTargetE),
-        .WriteDataE(SrcBE)
+        .WriteDataE(WriteDataE)
     );
+
+    // Compute PCSrcE
+    assign PCSrcE = (BranchE & ZeroE) | JumpE;
 
     // EX/MEM Pipeline Register
     EX_MEM_Pipeline_Reg ex_mem_pipeline_reg (
         .clk(clk),
         .reset(reset),
         .ALUResultE(ALUResultE),
-        .WriteDataE(SrcBE),
+        .WriteDataE(WriteDataE),
         .PCPlus4E(PCPlus4E),
         .RdE(RdE),
         .MemWriteE(MemWriteE),
@@ -206,6 +213,7 @@ module Top_Level(
     // MEM/WB Pipeline Register
     MEM_WB_Pipeline memwb_pipeline (
         .clk(clk),
+        .reset(reset),
         .RegWriteM(RegWriteM),
         .ResultSrcM(ResultSrcM),
         .ReadDataM(ReadDataM),
@@ -230,4 +238,3 @@ module Top_Level(
     );
 
 endmodule
-
