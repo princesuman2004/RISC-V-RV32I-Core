@@ -125,7 +125,7 @@ module Top_Level(
     // ID/EX Pipeline Register
     ID_EX_Pipeline_Reg id_ex_pipeline (
         .clk(clk),
-        .reset(result),
+        .reset(reset),
         .FlushE(FlushE),          
         .RD1(RD1D),
         .RD2(RD2D),
