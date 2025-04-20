@@ -168,3 +168,46 @@ always @(*) begin
 end
 
 endmodule
+
+module ALU_Decoder(
+    input  wire [1:0] ALUOpD,
+    input  wire [2:0] funct3,
+    input  wire [6:0] funct7,
+    output reg  [2:0] ALUControlD
+);
+    always @(*) begin
+        case(ALUOpD)
+            2'b00: ALUControlD = 3'b000; // add for lw/sw
+            2'b01: ALUControlD = 3'b001; // sub for branches
+            2'b10: begin
+                case(funct3)
+                    3'b000: begin
+                        // add / sub
+                        if (funct7 == 7'b0000000)
+                            ALUControlD = 3'b000; // add
+                        else if (funct7 == 7'b0100000)
+                            ALUControlD = 3'b001; // sub
+                        else
+                            ALUControlD = 3'b000; // default to add
+                    end
+                    3'b001: ALUControlD = 3'b100; // sll
+                    3'b010: ALUControlD = 3'b101; // slt
+                    3'b011: ALUControlD = 3'b110; // sltu
+                    3'b100: ALUControlD = 3'b010; // xor
+                    3'b101: begin
+                        if (funct7 == 7'b0000000)
+                            ALUControlD = 3'b011; // srl
+                        else if (funct7 == 7'b0100000)
+                            ALUControlD = 3'b111; // sra
+                        else
+                            ALUControlD = 3'b011; // default srl
+                    end
+                    3'b110: ALUControlD = 3'b100; // or (not strictly correct in your older code)
+                    3'b111: ALUControlD = 3'b011; // and (not strictly correct in your older code)
+                    default: ALUControlD = 3'b000;
+                endcase
+            end
+            default: ALUControlD = 3'b000;
+        endcase
+    end
+endmodule
