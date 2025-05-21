@@ -554,9 +554,9 @@ always @(*) begin
             ImmSrcD = 3'b100;
             ALUSrcD = 1;
             MemWriteD = 0;
-            ResultSrcD = 2'b11;
+            ResultSrcD = 2'b11; // Use special path for LUI
             BranchD = 0;
-            ALUOpD = 2'b00;
+            ALUOpD = 2'b11;     // Use special ALUOp for LUI
             JumpD = 0;
         end
         7'b0010111: begin // AUIPC
@@ -566,7 +566,7 @@ always @(*) begin
             MemWriteD = 0;
             ResultSrcD = 2'b00;
             BranchD = 0;
-            ALUOpD = 2'b00;
+            ALUOpD = 2'b11;     // Use special ALUOp for AUIPC
             JumpD = 0;
         end
         default: begin
@@ -583,7 +583,6 @@ always @(*) begin
 end
 endmodule
 
-
 (* dont_touch = "true" *)
 module ALU_Decoder(
     input [1:0] ALUOpD,
@@ -596,6 +595,7 @@ always @(*) begin
     case(ALUOpD)
         2'b00: ALUControlD = 3'b000; // add for lw/sw/jalr
         2'b01: ALUControlD = 3'b001; // subtract for branches
+        2'b11: ALUControlD = 3'b000; // pass through for LUI/AUIPC
         2'b10: begin
             case(funct3)
                 3'b000: begin
@@ -618,8 +618,8 @@ always @(*) begin
                     else
                         ALUControlD = 3'b011; // default to srl
                 end
-                3'b110: ALUControlD = 3'b100; // or
-                3'b111: ALUControlD = 3'b011; // and
+                3'b110: ALUControlD = 3'b111; // or - CORRECTED FROM 3'b100
+                3'b111: ALUControlD = 3'b011; // and - CORRECTED FROM 3'b011
                 default: ALUControlD = 3'b000;
             endcase
         end
@@ -898,17 +898,16 @@ module ALU (
             3'b000: Result = A + B;
             3'b001: Result = A - B;
             3'b010: Result = A ^ B;
-            3'b011: Result = A & B;
-            3'b100: Result = A << B[4:0];
+            3'b011: Result = A & B;           // AND - CORRECTED
+            3'b100: Result = A << B[4:0];     // Shift left logical
             3'b101: Result = ($signed(A) < $signed(B)) ? 32'b1 : 32'b0;
             3'b110: Result = (A < B) ? 32'b1 : 32'b0;
-            3'b111: Result = $signed(A) >>> B[4:0]; // Arithmetic right shift
+            3'b111: Result = A | B;           // OR - CORRECTED
             default: Result = 32'b0;
         endcase
         Zero = (Result == 32'b0);
     end
 endmodule
-
 
 
 module EX_MEM_Pipeline_Reg (
@@ -1271,7 +1270,7 @@ module WBStage(
             2'b00: ResultW = ALUResultW;      // ALU result
             2'b01: ResultW = ReadDataW;       // Memory read
             2'b10: ResultW = PCPlus4W;        // PC+4 for JAL/JALR
-            2'b11: ResultW = ALUResultW;      // For LUI/AUIPC
+            2'b11: ResultW = ALUResultW;      // For LUI - already contains immediate value
             default: ResultW = 32'b0;
         endcase
     end
