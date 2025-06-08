@@ -85,8 +85,8 @@ The hazard unit detects data and control hazards in the pipeline and triggers fo
 1. **Clone the repository**:
    First, clone the repository to your local machine:
    ```bash
-   git clone https://github.com/yourusername/pipelined-processor-with-hazard-handling.git
-   cd pipelined-processor-with-hazard-handling
+   git clone https://github.com/princesuman2004/RISC-V-RV32I-Core.git
+   cd RISC-V-RV32I-Core
    ```
 
 2. **Open Vivado**:
